@@ -1,12 +1,13 @@
 import { BigNumber } from '@ethersproject/bignumber'
 import { TransactionResponse } from '@ethersproject/providers'
-import { Currency, currencyEquals, ETHER, TokenAmount, WETH } from '@luaswap/sdk'
+import { Currency, currencyEquals, ETHER, TOMO, TokenAmount, WETH } from '@luaswap/sdk'
 import React, { useCallback, useContext, useState } from 'react'
 import { Plus } from 'react-feather'
 import ReactGA from 'react-ga'
 import { RouteComponentProps } from 'react-router-dom'
 import { Text } from 'rebass'
-import { ThemeContext } from 'styled-components'
+import { Link } from 'react-router-dom'
+import styled, { ThemeContext } from 'styled-components'
 import { ButtonError, ButtonLight, ButtonPrimary } from '../../components/Button'
 import { BlueCard, LightCard } from '../../components/Card'
 import { AutoColumn, ColumnCenter } from '../../components/Column'
@@ -17,7 +18,7 @@ import { AddRemoveTabs } from '../../components/NavigationTabs'
 import { MinimalPositionCard } from '../../components/PositionCard'
 import Row, { RowBetween, RowFlat } from '../../components/Row'
 
-import { ROUTER_ADDRESS } from '../../constants'
+import { ROUTER_ADDRESS, TOMO_ROUTER_ADDRESS } from '../../constants'
 import { PairState } from '../../data/Reserves'
 import { useActiveWeb3React } from '../../hooks'
 import { useCurrency } from '../../hooks/Tokens'
@@ -30,7 +31,7 @@ import { useDerivedMintInfo, useMintActionHandlers, useMintState } from '../../s
 import { useTransactionAdder } from '../../state/transactions/hooks'
 import { useIsExpertMode, useUserSlippageTolerance } from '../../state/user/hooks'
 import { TYPE } from '../../theme'
-import { calculateGasMargin, calculateSlippageAmount, getRouterContract } from '../../utils'
+import { calculateGasMargin, calculateSlippageAmount, getRouterContract, IsTomoChain } from '../../utils'
 import { maxAmountSpend } from '../../utils/maxAmountSpend'
 import { wrappedCurrency } from '../../utils/wrappedCurrency'
 import AppBody from '../AppBody'
@@ -38,7 +39,17 @@ import { Dots, Wrapper } from '../Pool/styleds'
 import { ConfirmAddModalBottom } from './ConfirmAddModalBottom'
 import { currencyId } from '../../utils/currencyId'
 import { PoolPriceBar } from './PoolPriceBar'
+import NoticeTomoBridge from '../../components/NoticeGeneral/bridge'
 
+const StyledLink = styled(Link)`
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 25px;
+  margin-top: 10px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  background-color: ${({ theme }) => theme.primary1};
+`
 export default function AddLiquidity({
   match: {
     params: { currencyIdA, currencyIdB }
@@ -46,6 +57,7 @@ export default function AddLiquidity({
   history
 }: RouteComponentProps<{ currencyIdA?: string; currencyIdB?: string }>) {
   const { account, chainId, library } = useActiveWeb3React()
+  const IsTomo = IsTomoChain(chainId)
   const theme = useContext(ThemeContext)
 
   const currencyA = useCurrency(currencyIdA)
@@ -77,7 +89,6 @@ export default function AddLiquidity({
     error
   } = useDerivedMintInfo(currencyA ?? undefined, currencyB ?? undefined)
   const { onFieldAInput, onFieldBInput } = useMintActionHandlers(noLiquidity)
-
   const isValid = !error
 
   // modal and loading
@@ -105,7 +116,6 @@ export default function AddLiquidity({
     },
     {}
   )
-
   const atMaxAmounts: { [field in Field]?: TokenAmount } = [Field.CURRENCY_A, Field.CURRENCY_B].reduce(
     (accumulator, field) => {
       return {
@@ -117,11 +127,17 @@ export default function AddLiquidity({
   )
 
   // check whether the user has approved the router on the tokens
-  const [approvalA, approveACallback] = useApproveCallback(parsedAmounts[Field.CURRENCY_A], ROUTER_ADDRESS)
-  const [approvalB, approveBCallback] = useApproveCallback(parsedAmounts[Field.CURRENCY_B], ROUTER_ADDRESS)
+  const [approvalA, approveACallback] = useApproveCallback(
+    parsedAmounts[Field.CURRENCY_A],
+    IsTomo ? TOMO_ROUTER_ADDRESS : ROUTER_ADDRESS
+  )
+  const [approvalB, approveBCallback] = useApproveCallback(
+    parsedAmounts[Field.CURRENCY_B],
+    IsTomo ? TOMO_ROUTER_ADDRESS : ROUTER_ADDRESS
+  )
 
   const addTransaction = useTransactionAdder()
-
+  // Add Pool
   async function onAdd() {
     if (!chainId || !library || !account) return
     const router = getRouterContract(chainId, library, account)
@@ -129,18 +145,17 @@ export default function AddLiquidity({
     if (!parsedAmountA || !parsedAmountB || !currencyA || !currencyB || !deadline) {
       return
     }
-
     const amountsMin = {
       [Field.CURRENCY_A]: calculateSlippageAmount(parsedAmountA, noLiquidity ? 0 : allowedSlippage)[0],
       [Field.CURRENCY_B]: calculateSlippageAmount(parsedAmountB, noLiquidity ? 0 : allowedSlippage)[0]
     }
-
     let estimate,
       method: (...args: any) => Promise<TransactionResponse>,
       args: Array<string | string[] | number>,
       value: BigNumber | null
-    if (currencyA === ETHER || currencyB === ETHER) {
-      const tokenBIsETH = currencyB === ETHER
+
+    if (currencyA === ETHER || currencyB === ETHER || currencyA === TOMO || currencyB === TOMO) {
+      const tokenBIsETH = currencyB === ETHER || currencyB === TOMO
       estimate = router.estimateGas.addLiquidityETH
       method = router.addLiquidityETH
       args = [
@@ -206,7 +221,6 @@ export default function AddLiquidity({
         }
       })
   }
-
   const modalHeader = () => {
     return noLiquidity ? (
       <AutoColumn gap="20px">
@@ -264,7 +278,6 @@ export default function AddLiquidity({
   const pendingText = `Supplying ${parsedAmounts[Field.CURRENCY_A]?.toSignificant(6)} ${
     currencies[Field.CURRENCY_A]?.symbol
   } and ${parsedAmounts[Field.CURRENCY_B]?.toSignificant(6)} ${currencies[Field.CURRENCY_B]?.symbol}`
-
   const handleCurrencyASelect = useCallback(
     (currencyA: Currency) => {
       const newCurrencyIdA = currencyId(currencyA)
@@ -286,7 +299,7 @@ export default function AddLiquidity({
           history.push(`/add/${newCurrencyIdB}`)
         }
       } else {
-        history.push(`/add/${currencyIdA ? currencyIdA : 'ETH'}/${newCurrencyIdB}`)
+        history.push(`/add/${currencyIdA ? currencyIdA : IsTomo ? 'TOMO' : 'ETH'}/${newCurrencyIdB}`)
       }
     },
     [currencyIdA, history, currencyIdB]
@@ -305,6 +318,7 @@ export default function AddLiquidity({
 
   return (
     <>
+      <NoticeTomoBridge />
       <AppBody>
         <AddRemoveTabs creating={isCreate} adding={true} />
         <Wrapper>
@@ -394,6 +408,15 @@ export default function AddLiquidity({
               <div style={{ padding: '1em', backgroundColor: theme.bg3 }}>
                 <ButtonLight onClick={toggleWalletModal}>Connect Wallet</ButtonLight>
               </div>
+            ) : IsTomo && noLiquidity && pairState === PairState.NOT_EXISTS ? (
+              <AutoColumn gap="sm" justify="center">
+                <Text color="#AF7C31" textAlign="center" fontSize="13px">
+                  Pair don't exist yet. Please create a pair before adding liquidity.
+                </Text>
+                <StyledLink to={`/create-pair`}>
+                  <Text textAlign="center">Back</Text>
+                </StyledLink>
+              </AutoColumn>
             ) : (
               <AutoColumn gap={'md'}>
                 {(approvalA === ApprovalState.NOT_APPROVED ||

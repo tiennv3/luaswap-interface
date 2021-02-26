@@ -18,11 +18,14 @@ import ERC20_ABI from '../constants/abis/erc20.json'
 import { MIGRATOR_ABI, MIGRATOR_ADDRESS } from '../constants/abis/migrator'
 import UNISOCKS_ABI from '../constants/abis/unisocks.json'
 import WETH_ABI from '../constants/abis/weth.json'
+import V2_FACTORY_ABI from '../constants/abis/factory.json'
+import TRC21_ABI from '../constants/abis/trc21.json'
 import { MULTICALL_ABI, MULTICALL_NETWORKS } from '../constants/multicall'
 import { V1_EXCHANGE_ABI, V1_FACTORY_ABI, V1_FACTORY_ADDRESSES } from '../constants/v1'
 import { getContract } from '../utils'
 import { useActiveWeb3React } from './index'
 import { FARMING_ABI, FARMING_ADDRESS } from '../constants/abis/farming'
+import LUA_ABI from '../constants/abis/lua'
 
 // returns null on errors
 function useContract(address: string | undefined, ABI: any, withSignerIfPossible = true): Contract | null {
@@ -54,6 +57,10 @@ export function useV1ExchangeContract(address?: string, withSignerIfPossible?: b
 
 export function useTokenContract(tokenAddress?: string, withSignerIfPossible?: boolean): Contract | null {
   return useContract(tokenAddress, ERC20_ABI, withSignerIfPossible)
+}
+
+export function useLuaTokenContract(tokenAddress?: string, withSignerIfPossible?: boolean): Contract | null {
+  return useContract(tokenAddress, LUA_ABI, withSignerIfPossible)
 }
 
 export function useWETHContract(withSignerIfPossible?: boolean): Contract | null {
@@ -96,6 +103,14 @@ export function useBytes32TokenContract(tokenAddress?: string, withSignerIfPossi
 
 export function usePairContract(pairAddress?: string, withSignerIfPossible?: boolean): Contract | null {
   return useContract(pairAddress, IUniswapV2PairABI, withSignerIfPossible)
+}
+
+export function useCreatePairContract(factoryAddress?: string, withSignerIfPossible?: boolean): Contract | null {
+  return useContract(factoryAddress, V2_FACTORY_ABI, withSignerIfPossible)
+}
+
+export function useTrc21Contract(address?: string, withSignerIfPossible?: boolean): Contract | null {
+  return useContract(address, TRC21_ABI, withSignerIfPossible)
 }
 
 export function useMulticallContract(): Contract | null {

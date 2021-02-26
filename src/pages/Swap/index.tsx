@@ -44,6 +44,7 @@ import { computeTradePriceBreakdown, warningSeverity } from '../../utils/prices'
 import AppBody from '../AppBody'
 import { ClickableText } from '../Pool/styleds'
 import Loader from '../../components/Loader'
+import NoticeTomoBridge from '../../components/NoticeGeneral/bridge'
 
 export default function Swap() {
   const loadedUrlParams = useDefaultsFromURLSearch()
@@ -180,7 +181,6 @@ export default function Swap() {
 
   // the callback to execute the swap
   const { callback: swapCallback, error: swapCallbackError } = useSwapCallback(trade, allowedSlippage, recipient)
-
   const { priceImpactWithoutFee } = computeTradePriceBreakdown(trade)
 
   const handleSwap = useCallback(() => {
@@ -190,7 +190,6 @@ export default function Swap() {
     if (!swapCallback) {
       return
     }
-
     setSwapState({ attemptingTxn: true, tradeToConfirm, showConfirm, swapErrorMessage: undefined, txHash: undefined })
     swapCallback()
       .then(hash => {
@@ -264,9 +263,9 @@ export default function Swap() {
   const handleOutputSelect = useCallback(outputCurrency => onCurrencySelection(Field.OUTPUT, outputCurrency), [
     onCurrencySelection
   ])
-
   return (
     <>
+      <NoticeTomoBridge />
       <TokenWarningModal
         isOpen={urlLoadedTokens.length > 0 && !dismissTokenWarning}
         tokens={urlLoadedTokens}
